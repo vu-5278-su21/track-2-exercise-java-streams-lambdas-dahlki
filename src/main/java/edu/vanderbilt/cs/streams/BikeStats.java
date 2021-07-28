@@ -1,10 +1,13 @@
 package edu.vanderbilt.cs.streams;
 
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalDouble;
+import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.function.ToDoubleFunction;
 import java.util.stream.Collectors;
 import java.util.stream.DoubleStream;
@@ -42,7 +45,19 @@ public class BikeStats {
      * @return
      */
     public Stream<BikeRide.DataFrame> averagedDataFrameStream(int windowSize){
-        return Stream.empty();
+        return StreamUtils.slidingWindow(this.ride.fusedFramesStream()
+                .collect(Collectors.toList()), windowSize)
+                .map(this::getAverage);
+    }
+
+    private BikeRide.DataFrame getAverage(List<BikeRide.DataFrame> dataFrames) {
+        Double velocityAverage = StreamUtils.averageOfProperty(BikeRide.DataFrame::getVelocity).apply(dataFrames);
+        Double heartRateAverage = StreamUtils.averageOfProperty(BikeRide.DataFrame::getHeartRate).apply(dataFrames);
+        Double gradeAverage = StreamUtils.averageOfProperty(BikeRide.DataFrame::getGrade).apply(dataFrames);
+        Double altitudeAverage = StreamUtils.averageOfProperty(BikeRide.DataFrame::getAltitude).apply(dataFrames);
+        LatLng coordinate = dataFrames.get(0).getCoordinate();
+
+        return new BikeRide.DataFrame(coordinate, gradeAverage, altitudeAverage, velocityAverage, heartRateAverage);
     }
 
     // @ToDo:
@@ -57,7 +72,23 @@ public class BikeStats {
     // the same.
     //
     public Stream<LatLng> locationsOfStops() {
-        return Stream.empty();
+        Set<LatLng> latLngsSet = new HashSet<>();
+
+        this.ride.fusedFramesStream().filter(dataFrame -> dataFrame.getVelocity() == 0).collect(Collectors.toList()).removeIf(dataFrame -> !latLngsSet.add(dataFrame.getCoordinate()));
+        this.ride.fusedFramesStream()
+                .filter(dataFrame -> dataFrame.getVelocity() == 0)
+                .filter(distinctBy(dataFrame -> createLatLng(dataFrame.getCoordinate())))
+                .forEach(dataFrame -> latLngsSet.add(dataFrame.getCoordinate()));
+        return latLngsSet.stream();
+    }
+
+    public static <T> Predicate<T> distinctBy(Function<? super T, ?> f) {
+        Set<Object> unique = new HashSet<>();
+        return t -> unique.add(f.apply(t));
+    }
+
+    private static String createLatLng(LatLng latLng) {
+        return String.valueOf(latLng.latitude) + latLng.longitude;
     }
 
 }

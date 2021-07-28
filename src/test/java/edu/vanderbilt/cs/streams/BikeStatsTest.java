@@ -43,7 +43,7 @@ public class BikeStatsTest {
         assertEquals(
                 ride.velocityStream().limit(25).average().getAsDouble(),
                 stats.averagedDataFrameStream(25)
-                        .findFirst().get().velocity);
+                        .findFirst().get().velocity, 0.01);
 
 
         // This is a slow test and possibly not worth the bang for the buck.
@@ -59,7 +59,7 @@ public class BikeStatsTest {
                 stats.averagedDataFrameStream(windowSize)
                         .skip(stats.averagedDataFrameStream(windowSize).count() - 1)
                         .mapToDouble(f -> f.getVelocity() * windowSize)
-                        .sum());
+                        .sum(), 0.01);
 
         // Checks to see if the sum of the values in each sliding window
         // equals the average for the corresponding data frame times the
